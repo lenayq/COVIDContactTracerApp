@@ -174,7 +174,7 @@ class GetMacAdd():
                 while re.search(isContractionMid,mac) is not None:
                     digit = re.search(isContractionMid,mac).group(1)
                     mac = re.sub(isContractionMid,":" + digit + "0:",mac)
-                if mac is not ["00:00:00:00:00:00", '00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00','00:00:00:00']:
+                if  re.match(r'00[:0]*', mac) is None:
                     selfMac.append(mac)
                     Logger.info('getMacSelf:' + mac + ' has been appended to output of function')
             except KeyError:
@@ -492,13 +492,17 @@ class HomePage(Screen, Widget):
             self.actualMac = "\nMAC On Current Network : \n\n" + self.macClass.getMac()
             cutoff = datetime.datetime.now() - datetime.timedelta(days=14)
             macDict = this.store.get("macDict")["value"]
+            pauseThread(this.myClockThread)
+            newMacDict = {}
             for mac in macDict.keys():
                 strTime = macDict[mac]
                 dateSeen = datetime.datetime.strptime(strTime, '%Y-%m-%d_%H:%M:%S')
-                if dateSeen < cutoff:
-                    del macDict[mac]
-            this.store.put("macDict", value = macDict)
+                if not dateSeen < cutoff:
+                    newMacDict[mac] = macDict[mac]
+            this.store.put("macDict", value = newMacDict)
             del macDict
+            del newMacDict
+            resumeThread(this.myClockThread)
         #This should at least guarantee the gui to run but set everything to empty.
         else:
             this.store.put("homeLabelColor", value = [1, 0, 0, 1])
@@ -845,7 +849,7 @@ WindowManager:
         text: "Click anywhere outside error box to continue"
         size_hint: 0.8, 0.2
         pos_hint: {"x": 0.1, "y": 0}
-        
+
 <ErrorPopupServer>:
     ScaleLabel:
         size_hint: 0.6, 0.2
@@ -863,7 +867,7 @@ WindowManager:
         text: "Click anywhere outside error box to continue"
         size_hint: 0.8, 0.2
         pos_hint: {"x": 0.1, "y": 0}
-        
+
 <ErrorPopupSecret>:
     ScaleLabel:
         size_hint: 0.6, 0.2
