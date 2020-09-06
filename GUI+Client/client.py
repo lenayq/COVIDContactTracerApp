@@ -33,10 +33,60 @@ class TimeoutException(Exception):
 
 this = sys.modules[__name__]
 
+
+#  PURPOSE: Reports the user as positive and the potential contacted persons.
+#  INPUT: True MAC address of user(string), the secret key(string), and list of MAC Addresses (CSV string). The CSV list cannot be empty.
+#  RETURN: 0 on success
+#  ERROR: returns 2 when a retry is needed (server error), return 3 for incorrect secret key, return 4 for empty/invalid CSV contacted list.
+#  CATCH-ALL: Returns a 1 for other errors.
+def positiveReport(MacAddrSelf,secretKey,metAddrList):
+    d = {}
+    d['Self'] = MacAddrSelf
+    d['MetAddrList'] = metAddrList
+    d['Secret'] = secretKey
+    # Form data must be provided already urlencoded.
+    postfields = json.dumps(d)
+    # Sets request method to POST,
+    # Content-Type header to application/x-www-form-urlencoded
+    # and data to send in request body.
+    Logger.info("positiveReport:postfields="+postfields)
+    try:
+        httpReq(this.__baseURL__+'positiveReport',postfields,this.__header__,300,'POST')
+    except NoInternetException:
+        return 2
+    except TimeoutException:
+        return 2
+    code = this.__code__
+    if type(code) is not int:
+        Logger.error("positiveReport:Unknown Error: No response")
+        return 2
+    body = repr(this.__body__)
+
+
+    if code == 201 and "Get well soon. " in body:
+        #  Server Ack Success
+        return 0
+    elif code >= 500:
+        #  Retry
+        Logger.warning("positiveReport:Server Error: " + str(code) + " msg: " + body)
+        return 2
+    elif code == 400:
+        Logger.warning("positiveReport:400 Error:msg: " + body)
+        return 4
+    elif code == 403:
+        Logger.warning("positiveReport:403 Error:msg: " + body)
+        return 3  # Permission denied due to initiated
+    else:
+        #  Unknown Error
+        Logger.error("positiveReport:Unknown Error: " + str(code) + " msg: " + body)
+        return 1
+
 def init(logDir,verbosityLevel):
     this.__completed__ = False
     this.__code__ = None
     this.__body__ = None
+    
+    
     this.__header__ = {"Content-type": "application/x-www-form-urlencoded","Accept": "*/*", "User-Agent": "COVIDContactTracerApp/1.0", "Content-Length": 1}
     this.__baseURL__ = "http://covidcontacttracer-appreciative-civet-qu.mybluemix.net/"
     this.logVerbosity = verbosityLevel
@@ -45,11 +95,15 @@ def init(logDir,verbosityLevel):
     elif this.logVerbosity < 20:
         this.log_level = "debug"
     elif this.logVerbosity < 30:
+        
+        
         this.log_level = "info"
     elif this.logVerbosity < 40:
         this.log_level = "warn"
+        
     elif this.logVerbosity < 50:
         this.log_level = "error"
+        
     elif this.logVerbosity == 50:
         this.log_level = "critical"
     else:
@@ -64,6 +118,53 @@ def init(logDir,verbosityLevel):
     else:
         return False
 
+
+
+#  PURPOSE: Reports the user as negative.
+#  INPUT: True MAC address of user(string), the secret key(string)
+#  RETURN: 0 on success
+#  ERROR: returns 2 when a retry is needed (server error), return 3 for incorrect secret key, return 4 for empty/invalid MAC addr of self.
+#  CATCH-ALL: Returns a 1 for other errors.
+def negativeReport(MacAddrSelf,secretKey):
+    d = {}
+    d['Self'] = MacAddrSelf
+    d['Secret'] = secretKey
+    # Form data must be provided already urlencoded.
+    postfields = json.dumps(d)
+    # Sets request method to POST,
+    # Content-Type header to application/x-www-form-urlencoded
+    # and data to send in request body.
+    Logger.info("negativeReport:postfields="+postfields)
+    try:
+        httpReq(this.__baseURL__+'negativeReport',postfields,this.__header__,30,'POST')
+    except NoInternetException:
+        return 2
+    except TimeoutException:
+        return 2
+    code = this.__code__
+    if type(code) is not int:
+        Logger.error("negativeReport:Unknown Error: No response")
+        return 2
+    body = repr(this.__body__)
+
+
+    if code == 201 and "Stay healthy." in body:
+        #  Server Ack Success
+        return 0
+    elif code >= 500:
+        #  Retry
+        Logger.warning("negativeReport:Server Error: " + str(code) + " msg: " + body)
+        return 2
+    elif code == 400:
+        Logger.warning("negativeReport:400 Error:msg: " + body)
+        return 4
+    elif code == 403:
+        Logger.warning("negativeReport:403 Error:msg: " + body)
+        return 3  # Permission denied due to initiated
+    else:
+        #  Unknown Error
+        Logger.error("negativeReport:Unknown Error: " + str(code) + " msg: " + body)
+        return 1
 
 
 #  PURPOSE: Delcares the user to the server.
@@ -120,102 +221,6 @@ def initSelf(MacAddrSelf):
         Logger.error("initSelf:Unknown Error: " + str(code) + " msg: " + body)
         return 1
 
-
-#  PURPOSE: Reports the user as positive and the potential contacted persons.
-#  INPUT: True MAC address of user(string), the secret key(string), and list of MAC Addresses (CSV string). The CSV list cannot be empty.
-#  RETURN: 0 on success
-#  ERROR: returns 2 when a retry is needed (server error), return 3 for incorrect secret key, return 4 for empty/invalid CSV contacted list.
-#  CATCH-ALL: Returns a 1 for other errors.
-def positiveReport(MacAddrSelf,secretKey,metAddrList):
-    d = {}
-    d['Self'] = MacAddrSelf
-    d['MetAddrList'] = metAddrList
-    d['Secret'] = secretKey
-    # Form data must be provided already urlencoded.
-    postfields = json.dumps(d)
-    # Sets request method to POST,
-    # Content-Type header to application/x-www-form-urlencoded
-    # and data to send in request body.
-    Logger.info("positiveReport:postfields="+postfields)
-    try:
-        httpReq(this.__baseURL__+'positiveReport',postfields,this.__header__,300,'POST')
-    except NoInternetException:
-        return 2
-    except TimeoutException:
-        return 2
-    code = this.__code__
-    if type(code) is not int:
-        Logger.error("positiveReport:Unknown Error: No response")
-        return 2
-    body = repr(this.__body__)
-
-
-    if code == 201 and "Get well soon. " in body:
-        #  Server Ack Success
-        return 0
-    elif code >= 500:
-        #  Retry
-        Logger.warning("positiveReport:Server Error: " + str(code) + " msg: " + body)
-        return 2
-    elif code == 400:
-        Logger.warning("positiveReport:400 Error:msg: " + body)
-        return 4
-    elif code == 403:
-        Logger.warning("positiveReport:403 Error:msg: " + body)
-        return 3  # Permission denied due to initiated
-    else:
-        #  Unknown Error
-        Logger.error("positiveReport:Unknown Error: " + str(code) + " msg: " + body)
-        return 1
-
-
-#  PURPOSE: Reports the user as negative.
-#  INPUT: True MAC address of user(string), the secret key(string)
-#  RETURN: 0 on success
-#  ERROR: returns 2 when a retry is needed (server error), return 3 for incorrect secret key, return 4 for empty/invalid MAC addr of self.
-#  CATCH-ALL: Returns a 1 for other errors.
-def negativeReport(MacAddrSelf,secretKey):
-    d = {}
-    d['Self'] = MacAddrSelf
-    d['Secret'] = secretKey
-    # Form data must be provided already urlencoded.
-    postfields = json.dumps(d)
-    # Sets request method to POST,
-    # Content-Type header to application/x-www-form-urlencoded
-    # and data to send in request body.
-    Logger.info("negativeReport:postfields="+postfields)
-    try:
-        httpReq(this.__baseURL__+'negativeReport',postfields,this.__header__,30,'POST')
-    except NoInternetException:
-        return 2
-    except TimeoutException:
-        return 2
-    code = this.__code__
-    if type(code) is not int:
-        Logger.error("negativeReport:Unknown Error: No response")
-        return 2
-    body = repr(this.__body__)
-
-
-    if code == 201 and "Stay healthy." in body:
-        #  Server Ack Success
-        return 0
-    elif code >= 500:
-        #  Retry
-        Logger.warning("negativeReport:Server Error: " + str(code) + " msg: " + body)
-        return 2
-    elif code == 400:
-        Logger.warning("negativeReport:400 Error:msg: " + body)
-        return 4
-    elif code == 403:
-        Logger.warning("negativeReport:403 Error:msg: " + body)
-        return 3  # Permission denied due to initiated
-    else:
-        #  Unknown Error
-        Logger.error("negativeReport:Unknown Error: " + str(code) + " msg: " + body)
-        return 1
-
-
 #  PURPOSE: Gets the state of the user from the server.
 #  INPUT: MAC address of user(string), the secret key(string)
 #  INPUT (Android 10 Only): A string of MAC addresses with the user's true MAC Address first as a CSV string, the user's secret key
@@ -271,6 +276,22 @@ def queryMyMacAddr(self,secret):
         return 1
 
 
+def httpReq(url,body,headers,timeout,method):
+    if body is not None:
+        this.__header__["Content-Length"] = len(body)
+    else:
+        this.__header__["Content-Length"] = 0
+    Logger.info(repr(url) + repr(body) + repr(headers) + repr(timeout) + repr(method))
+    req = UrlRequest(url, req_body=body,req_headers=headers,timeout=timeout,method=method,debug=False,on_error=on_complete,on_redirect=on_complete,on_failure=on_complete)
+    req.wait()
+    if req.resp_status is not None:
+        this.__code__ = req.resp_status
+        this.__body__ = req.result
+    else:
+        this.__code__ = 500
+        this.__body__ = ""
+
+
 #  PURPOSE: Marks the users MAC address for deletion and removes the user's state and secret key.
 #  INPUT: MAC address of user(string), the secret key(string), and list of MAC Addresses (CSV string)
 #  RETURN: 0 on success
@@ -309,6 +330,7 @@ def forgetUser(MacAddrSelf, secretKey):
     elif code == 400:
         Logger.warning("forgetUser:400 Error:msg: " + body)
         return 4
+    
     elif code == 403:
         Logger.warning("forgetUser:403 Error:msg: " + body)
         return 3  # Permission denied due to initiated
@@ -324,34 +346,25 @@ def on_complete(request,req):
     Logger.info(str(type(req)))
     if str(type(req)) in ["<class 'socket.gaierror'>","<class 'OSError'>","<class 'Exception'>"]:
         raise NoInternetException
+        
+        
     elif str(type(req)) in ["<class 'socket.timeout'>"]:
         raise TimeoutException
     return None
 
 
-def httpReq(url,body,headers,timeout,method):
-    if body is not None:
-        this.__header__["Content-Length"] = len(body)
-    else:
-        this.__header__["Content-Length"] = 0
-    Logger.info(repr(url) + repr(body) + repr(headers) + repr(timeout) + repr(method))
-    req = UrlRequest(url, req_body=body,req_headers=headers,timeout=timeout,method=method,debug=False,on_error=on_complete,on_redirect=on_complete,on_failure=on_complete)
-    req.wait()
-    if req.resp_status is not None:
-        this.__code__ = req.resp_status
-        this.__body__ = req.result
-    else:
-        this.__code__ = 500
-        this.__body__ = ""
+
+
+#  Function to free all resources used, call when exiting
+def freeResources():
+    pass
 
 #  Function to reset resources within this module, do not call
 def resetResources():
     pass
 
 
-#  Function to free all resources used, call when exiting
-def freeResources():
-    pass
+
 
 
 
