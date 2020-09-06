@@ -48,13 +48,17 @@ License:
 """
 
 #Creates a .CovidContactTracer directory to store logs and local files
+#First step to create logs
 this = sys.modules[__name__]
 if platform != 'android':
     if os.path.isdir(Path.home()):
+        #A file exists
         this.appPath = str(Path.home()) + os.sep + '.CovidContactTracer'
         if not os.path.isdir(this.appPath):
+            #Makes the directory where log files will be at
             os.mkdir(this.appPath)
     else:
+        #Throw error
         raise OSError
 else:
     from android.permissions import request_permissions, Permission
@@ -66,22 +70,34 @@ this.logVerbosity = 20
 this.storeName = 'local'
 this.deleteAllData = False
 if this.logVerbosity < 10:
+    
     this.log_level = "trace"
 elif this.logVerbosity < 20:
+    
     this.log_level = "debug"
 elif this.logVerbosity < 30:
+    
     this.log_level = "info"
+    
+    
 elif this.logVerbosity < 40:
+    
     this.log_level = "warn"
 elif this.logVerbosity < 50:
+    
     this.log_level = "error"
+    #Usually used for debugging
 elif this.logVerbosity == 50:
+    
     this.log_level = "critical"
 else:
     this.log_level = "trace"
 Config.set('kivy', 'log_level', this.log_level)
 if this.appPath == "":
+    
     Config.set('kivy', 'log_dir', this.appPath)
+    
+    
 Config.set('kivy', 'log_name', "CovidContactTracerGUI_%y-%m-%d_%_.log")
 Config.set('kivy', 'log_maxfiles', 49)
 Config.write()
@@ -90,47 +106,65 @@ Config.write()
 class storageUnit():
 
     def __init__(self):
+        #Creates instance
         Logger.info('creating an instance of storageUnit')
-
 
     #Adds a unknown / new mac address that was not on the previous network into the json file
     def addEntry(self, macAddress, time):
         pauseThread(this.myClockThread)
         if macAddress in this.store.get("macDict")["value"]:
             tempNewMacDict = this.store.get("macDict")["value"]
+            
+            
             tempNewMacDict[macAddress] = time
             this.store.put("macDict", value = tempNewMacDict)
+            
             tempNewMacDict = 0
 
             tempNewRecentTen = this.store.get("recentTen")["value"]
             tempNewRecentTen = [[time, macAddress]] + tempNewRecentTen[:9]
+            #This stores the recent Ten
             this.store.put("recentTen", value = tempNewRecentTen)
+            
+            #This point is when addEntry has been updated
             tempNewRecentTen = 0
             Logger.info('addEntry updated ' + macAddress + ' met at '+time)
         else:
             tempNewNumEntries = this.store.get("numEntries")["value"]
+            
             tempNewNumEntries += 1
+            
+            
             this.store.put("numEntries", value = tempNewNumEntries)
             tempNewNumEntries = 0
 
             tempNewMacDict = this.store.get("macDict")["value"]
             tempNewMacDict[macAddress] = time
+            #Time is added
             this.store.put("macDict", value = tempNewMacDict)
+            
+            
             tempNewMacDict = 0
 
             tempNewRecentTen = this.store.get("recentTen")["value"]
             tempNewRecentTen = [[time, macAddress]] + tempNewRecentTen[:9]
+            #Recent ten appended
             this.store.put("recentTen", value = tempNewRecentTen)
             tempNewRecentTen = 0
 
             Logger.info('addEntry added ' + macAddress + ' met at '+time)
+            
         resumeThread(this.myClockThread)
+        #The thread is resumed, meaning that the clock is starting to count again
 
 
     #Checks if the previous prevNetwork is the same as foreignSet, which is a set
     def isSamePrevNetwork(self, foreignSet):
         returnArr = []
+        
         for i in foreignSet:
+            
+            
             if i not in this.store.get("prevNetwork")["value"]:
                 returnArr += [i]
         Logger.info('isSamePrevNetwork filtered ' + repr(foreignSet) + ' into ' + repr(returnArr))
@@ -159,7 +193,10 @@ class GetMacAdd():
         selfMac = []
         isContractionStart = re.compile(r'^([\da-fA-F]):')
         isContractionMid = re.compile(r':([\da-fA-F]):')
+        
+        
         isContractionEnd = re.compile(r':([\da-fA-F])$')
+        
         for interface in netifaces.interfaces():
             Logger.info('getMacSelf checking interface ' + interface)
             try:
@@ -187,7 +224,58 @@ class GetMacAdd():
         else:
             Logger.info('getMacSelf returned ' + str(selfMac))
             return selfMac
+    #Method that gets the mac address. Returns the previous (current) network mac address
+    def getMac(self):
+        macInitStr = self.tryGetMac()
+        
+        
+        Logger.debug("We have entered getMac")
+        macInitStr = repr(macInitStr)
+        #This debugs the code by getting getMac and recording into directory folder
+        Logger.debug('getMac: recieved ' + macInitStr)
+        
+        
+        isMacAddr = re.compile(r"([\da-fA-F]{1,2}:[\da-fA-F]{1,2}:[\da-fA-F]{1,2}:[\da-fA-F]{1,2}:[\da-fA-F]{1,2}:[\da-fA-F]{1,2})")
+        isFloodAddr = re.compile("FF:FF:FF:FF:FF:FF",re.I)
+        shortMacList = re.findall(isMacAddr,macInitStr)
+        isContractionStart = re.compile(r'^([\da-fA-F]):')
+        isContractionMid = re.compile(r':([\da-fA-F]):')
+        isContractionEnd = re.compile(r':([\da-fA-F])$')
+        macList = []
+        for mac in shortMacList:
+            if re.search(isContractionStart,mac) is not None:
+                digit = re.search(isContractionStart,mac).group(1)
+                mac = re.sub(isContractionStart,digit + "0:",mac)
+            if re.search(isContractionEnd,mac) is not None:
+                
+                
+                digit = re.search(isContractionEnd,mac).group(1)
+                mac = re.sub(isContractionEnd,":" + digit + "0",mac)
+            while re.search(isContractionMid,mac) is not None:
+                digit = re.search(isContractionMid,mac).group(1)
+                
+                mac = re.sub(isContractionMid,":" + digit + "0:",mac)
+                
+            if re.search(isFloodAddr,mac) is None:
+                macList.append(mac)
 
+        Logger.debug('getMac: filtered into ' + repr(macList))
+
+        #macList is the list of mac addresses that was returned by the arp-a
+        compareSet = set(macList)
+        diffArr = self.storage.isSamePrevNetwork(compareSet)
+        if len(diffArr) == 0:
+            Logger.debug('getMac: No new MAC Addr found')
+            #This means that the previous network is the same as the current network
+            return self.getString(this.store.get("prevNetwork")["value"])
+        else:
+            #Appends on a new mac address if it does not exist
+            for macAdd in diffArr:
+                self.storage.addEntry(macAdd, datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S'))
+            pauseThread(this.myClockThread)
+            this.store.put("prevNetwork", value = dict.fromkeys(compareSet, 0))
+            resumeThread(this.myClockThread)
+            return self.getString(this.store.get("prevNetwork")["value"])
 
     #Method that attempts to arp the mac address. If not, logger records a critical message
     def tryGetMac(self):
@@ -223,58 +311,19 @@ class GetMacAdd():
         return ""
 
 
-    #Method that gets the mac address. Returns the previous (current) network mac address
-    def getMac(self):
-        macInitStr = self.tryGetMac()
-        Logger.debug("We have entered getMac")
-        macInitStr = repr(macInitStr)
-        Logger.debug('getMac: recieved ' + macInitStr)
-        isMacAddr = re.compile(r"([\da-fA-F]{1,2}:[\da-fA-F]{1,2}:[\da-fA-F]{1,2}:[\da-fA-F]{1,2}:[\da-fA-F]{1,2}:[\da-fA-F]{1,2})")
-        isFloodAddr = re.compile("FF:FF:FF:FF:FF:FF",re.I)
-        shortMacList = re.findall(isMacAddr,macInitStr)
-        isContractionStart = re.compile(r'^([\da-fA-F]):')
-        isContractionMid = re.compile(r':([\da-fA-F]):')
-        isContractionEnd = re.compile(r':([\da-fA-F])$')
-        macList = []
-        for mac in shortMacList:
-            if re.search(isContractionStart,mac) is not None:
-                digit = re.search(isContractionStart,mac).group(1)
-                mac = re.sub(isContractionStart,digit + "0:",mac)
-            if re.search(isContractionEnd,mac) is not None:
-                digit = re.search(isContractionEnd,mac).group(1)
-                mac = re.sub(isContractionEnd,":" + digit + "0",mac)
-            while re.search(isContractionMid,mac) is not None:
-                digit = re.search(isContractionMid,mac).group(1)
-                mac = re.sub(isContractionMid,":" + digit + "0:",mac)
-            if re.search(isFloodAddr,mac) is None:
-                macList.append(mac)
-
-        Logger.debug('getMac: filtered into ' + repr(macList))
-
-        #macList is the list of mac addresses that was returned by the arp-a
-        compareSet = set(macList)
-        diffArr = self.storage.isSamePrevNetwork(compareSet)
-        if len(diffArr) == 0:
-            Logger.debug('getMac: No new MAC Addr found')
-            return self.getString(this.store.get("prevNetwork")["value"])
-        else:
-            #Appends on a new mac address if it does not exist
-            for macAdd in diffArr:
-                self.storage.addEntry(macAdd, datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S'))
-            pauseThread(this.myClockThread)
-            this.store.put("prevNetwork", value = dict.fromkeys(compareSet, 0))
-            resumeThread(this.myClockThread)
-            return self.getString(this.store.get("prevNetwork")["value"])
+    
 
 
 class clockThread():
     def __init__(self, runInterval):
+        #Threading is used for preventing the code from overwriting storage
         self.enabled = True
         self.running = True
         self.runInterval = runInterval
         self._thread = threading.Thread(target=self.thread_func, args=())
         self._thread.start()
         self.macGenerator = GetMacAdd()
+        
 
     def thread_func(self):
         while self.enabled:
@@ -512,6 +561,17 @@ class HomePage(Screen, Widget):
         #The line of code that calls the function runTimeFunction every 20 ticks
 
 
+    #This method is used when we click the button to check our current network mac and confirm with the server
+    def calculateMac(self):
+        #actualMac is the variable that stores the current network after arp-a again
+        self.actualMac = "\nMAC On Current Network : \n\n" + self.macClass.getMac()
+        #This line checks with the server to see if user has already contacted infected individual
+        self.coronaCatcherButtonClicked()
+        Logger.info('Calculated MAC Addr to be ' + self.actualMac)
+        Logger.info(self.macClass.getString(self.store.get("prevNetwork")["value"]))
+        #This changes the displayed text into the current network by formatting it with the getString method in the macClass
+        self.macDisplay.text = self.macClass.getString(self.store.get("prevNetwork")["value"])
+        return self.actualMac
 
 
     #This function sends selfMacAddress to the server and stores the reply in the statusLabel variable in JSON
@@ -562,18 +622,7 @@ class HomePage(Screen, Widget):
         else:
             showErrorActualTime(allowedTime)
 
-    #This method is used when we click the button to check our current network mac and confirm with the server
-    def calculateMac(self):
-        #actualMac is the variable that stores the current network after arp-a again
-        self.actualMac = "\nMAC On Current Network : \n\n" + self.macClass.getMac()
-        #This line checks with the server to see if user has already contacted infected individual
-        self.coronaCatcherButtonClicked()
-        Logger.info('Calculated MAC Addr to be ' + self.actualMac)
-        Logger.info(self.macClass.getString(self.store.get("prevNetwork")["value"]))
-        #This changes the displayed text into the current network by formatting it with the getString method in the macClass
-        self.macDisplay.text = self.macClass.getString(self.store.get("prevNetwork")["value"])
-        return self.actualMac
-
+    
 
 
 #SideBar class page (reference my.kv file)
@@ -609,10 +658,7 @@ class QuitAppPage(Screen):
         super(QuitAppPage, self).__init__(**kwargs)
         self.quitCount = 0
         self.statusLabel = ObjectProperty(None)
-    #Clears the counter when the user hits "back"
-    def clearCounter(self):
-        self.quitCount = 0;
-        self.getCount()
+    
     #This method runs when the deleteDataAndQuit button is clicked
     def deleteDataAndQuitButtonClicked(self):
         pauseThread(this.myClockThread)
@@ -634,7 +680,10 @@ class QuitAppPage(Screen):
                     self.statusLabel.background_color = (0, 1, 0, 1)
                 elif (returnValue == 2):
                     showErrorServer()
+                    
                 elif (returnValue == 3):
+                    
+                    
                     showErrorSecret()
                 elif (returnValue == 4):
                     showErrorMAC()
@@ -650,7 +699,12 @@ class QuitAppPage(Screen):
             self.statusLabel.text = origText[:-9] + " |  Del:" + str(6 - self.quitCount%6)
         else:
             self.statusLabel.text = origText + " |  Del:" + str(6 - self.quitCount%6)
-
+    #Clears the counter when the user hits "back"
+    def clearCounter(self):
+        self.quitCount = 0;
+        self.getCount()
+        
+        
 #SendData class page (reference my.kv file)
 class SendDataPage(Screen):
     def __init__(self, **kwargs):
@@ -661,19 +715,6 @@ class SendDataPage(Screen):
         self.recoveredCount = 0
         Logger.info('creating an instance of SendDataPage')
         self.statusLabel = ObjectProperty(None)
-
-    #Convers a dictionary to a string used for permanent storage and sending to server
-    def getCSVString(self):
-        returnStr = this.store.get("selfMac")["value"] + ","
-        macDictionary = this.store.get("macDict")["value"]
-        for key in macDictionary:
-            returnStr += key + ","
-        return returnStr
-    #Clears the counter when user hits "back"
-    def clearCounter(self):
-        self.infectedCount = 0
-        self.recoveredCount = 0
-        self.getCount()
     #This method is called when the ImInfected button is clicked
     def imInfectedButtonClicked(self):
         Logger.info('imInfected button clicked')
@@ -699,6 +740,29 @@ class SendDataPage(Screen):
                     this.store.put("isInfected", value = True)
         else:
             self.getCount()
+    #Clears the counter when user hits "back"
+    def clearCounter(self):
+        self.infectedCount = 0
+        self.recoveredCount = 0
+        self.getCount()
+    #Convers a dictionary to a string used for permanent storage and sending to server
+    def getCSVString(self):
+        returnStr = this.store.get("selfMac")["value"] + ","
+        macDictionary = this.store.get("macDict")["value"]
+        for key in macDictionary:
+            returnStr += key + ","
+        return returnStr
+    
+    
+    
+    def getCount(self):
+        origText = self.statusLabel.text
+        if (origText[-1].isnumeric()):
+            self.statusLabel.text = origText[:-15] + " |  Inf:" + str(6 - self.infectedCount%6) + " Rec:" + str(6 - self.recoveredCount%6)
+        else:
+            self.statusLabel.text = origText + " |  Inf:" + str(6 - self.infectedCount%6) + " Rec:" + str(6 - self.recoveredCount%6)
+
+
     #This method is called when the iJustRecovered button is clicked
     def iJustRecoveredButtonClicked(self):
         Logger.info('iJustRecovered button clicked')
@@ -726,13 +790,6 @@ class SendDataPage(Screen):
                     this.store.put("isInfected", value = False)
         else:
             self.getCount()
-    def getCount(self):
-        origText = self.statusLabel.text
-        if (origText[-1].isnumeric()):
-            self.statusLabel.text = origText[:-15] + " |  Inf:" + str(6 - self.infectedCount%6) + " Rec:" + str(6 - self.recoveredCount%6)
-        else:
-            self.statusLabel.text = origText + " |  Inf:" + str(6 - self.infectedCount%6) + " Rec:" + str(6 - self.recoveredCount%6)
-
 #SeeDataPage class page (reference my.kv file)
 class SeeDataPage(Screen):
     def __init__(self, **kwargs):
@@ -832,23 +889,7 @@ WindowManager:
 		PopMatrix
 
 
-<ErrorPopup>:
-    ScaleButton:
-        size_hint: 0.6, 0.2
-        text: "An Error has Occured! "
-        pos_hint: {"x": 0.2, "top": 1}
-    ScaleButton:
-        text: "User Initiation Not Successful"
-        size_hint: 0.8, 0.2
-        pos_hint: {"x": 0.1, "y": 0.4}
-    ScaleButton:
-        text: "Please quit the app and try again"
-        size_hint: 0.8, 0.2
-        pos_hint: {"x": 0.1, "y": 0.2}
-    ScaleLabel:
-        text: "Click anywhere outside error box to continue"
-        size_hint: 0.8, 0.2
-        pos_hint: {"x": 0.1, "y": 0}
+
 
 <ErrorPopupServer>:
     ScaleLabel:
@@ -861,6 +902,24 @@ WindowManager:
         pos_hint: {"x": 0.1, "y": 0.4}
     ScaleLabel:
         text: "Please quit the app and retry (2)"
+        size_hint: 0.8, 0.2
+        pos_hint: {"x": 0.1, "y": 0.2}
+    ScaleLabel:
+        text: "Click anywhere outside error box to continue"
+        size_hint: 0.8, 0.2
+        pos_hint: {"x": 0.1, "y": 0}
+
+<ErrorPopup>:
+    ScaleButton:
+        size_hint: 0.6, 0.2
+        text: "An Error has Occured! "
+        pos_hint: {"x": 0.2, "top": 1}
+    ScaleButton:
+        text: "User Initiation Not Successful"
+        size_hint: 0.8, 0.2
+        pos_hint: {"x": 0.1, "y": 0.4}
+    ScaleButton:
+        text: "Please quit the app and try again"
         size_hint: 0.8, 0.2
         pos_hint: {"x": 0.1, "y": 0.2}
     ScaleLabel:
@@ -886,23 +945,6 @@ WindowManager:
         size_hint: 0.8, 0.2
         pos_hint: {"x": 0.1, "y": 0}
 
-<ErrorPopupMAC>:
-    ScaleLabel:
-        size_hint: 0.6, 0.2
-        text: "An Error has Occured! "
-        pos_hint: {"x": 0.2, "top": 1}
-    ScaleLabel:
-        text: "Invalid MAC address"
-        size_hint: 0.8, 0.2
-        pos_hint: {"x": 0.1, "y": 0.4}
-    ScaleLabel:
-        text: "Please quit the app and try again (4)"
-        size_hint: 0.8, 0.2
-        pos_hint: {"x": 0.1, "y": 0.2}
-    ScaleLabel:
-        text: "Click anywhere outside error box to continue"
-        size_hint: 0.8, 0.2
-        pos_hint: {"x": 0.1, "y": 0}
 
 <ErrorPopupTime>:
     ScaleLabel:
@@ -933,6 +975,40 @@ WindowManager:
         pos_hint: {"x": 0.1, "y": 0.4}
     ScaleLabel:
         text: "If problem persists, please contact developers"
+        size_hint: 0.8, 0.2
+        pos_hint: {"x": 0.1, "y": 0.2}
+    ScaleLabel:
+        text: "Click anywhere outside error box to continue"
+        size_hint: 0.8, 0.2
+        pos_hint: {"x": 0.1, "y": 0}
+
+<ErrorPopupInternet>:
+    ScaleLabel:
+        size_hint: 0.6, 0.2
+        text: "An Error has Occured! "
+        pos_hint: {"x": 0.2, "top": 1}
+    ScaleLabel:
+        text: "No Internet Connection"
+        size_hint: 0.8, 0.2
+        pos_hint: {"x": 0.1, "y": 0.4}
+
+    ScaleLabel:
+        text: "Click anywhere outside error box to continue"
+        size_hint: 0.8, 0.2
+        pos_hint: {"x": 0.1, "y": 0}
+
+
+<ErrorPopupMAC>:
+    ScaleLabel:
+        size_hint: 0.6, 0.2
+        text: "An Error has Occured! "
+        pos_hint: {"x": 0.2, "top": 1}
+    ScaleLabel:
+        text: "Invalid MAC address"
+        size_hint: 0.8, 0.2
+        pos_hint: {"x": 0.1, "y": 0.4}
+    ScaleLabel:
+        text: "Please quit the app and try again (4)"
         size_hint: 0.8, 0.2
         pos_hint: {"x": 0.1, "y": 0.2}
     ScaleLabel:
@@ -976,20 +1052,6 @@ WindowManager:
         size_hint: 0.8, 0.2
         pos_hint: {"x": 0.1, "y": 0}
 
-<ErrorPopupInternet>:
-    ScaleLabel:
-        size_hint: 0.6, 0.2
-        text: "An Error has Occured! "
-        pos_hint: {"x": 0.2, "top": 1}
-    ScaleLabel:
-        text: "No Internet Connection"
-        size_hint: 0.8, 0.2
-        pos_hint: {"x": 0.1, "y": 0.4}
-
-    ScaleLabel:
-        text: "Click anywhere outside error box to continue"
-        size_hint: 0.8, 0.2
-        pos_hint: {"x": 0.1, "y": 0}
 
 <ErrorPopupLogic>:
     ScaleLabel:
@@ -1006,6 +1068,137 @@ WindowManager:
         size_hint: 0.8, 0.2
         pos_hint: {"x": 0.1, "y": 0}
 
+
+<SeeDataPage>:
+    name: "seedata"
+    displayTen: display
+    ScaleLabel:
+        pos_hint: {"center_x": 0.5, "center_y": 0.86}
+        size_hint: 0.7, 0.04
+        text: "Recent Added Mac Addresses"
+        background_color: 1, 0, 0, 0.5
+    ScaleButton:
+        id: display
+        pos_hint: {"center_x": 0.5, "center_y": 0.4375}
+        size_hint: 0.7, 0.7
+        text: root.convertRecentTenToStr()
+        text_size: self.size
+        halign: "center"
+        valign: "top"
+    ScaleButton:
+        pos_hint: {"x": 0.05, "top": 0.97}
+        background_color: 1, 1, 1, 1
+        size_hint: 0.2, 0.05
+        text: "Options"
+        on_release:
+            app.root.current = "sidebar"
+            root.manager.transition.direction = "right"
+
+    ScaleButton:
+        pos_hint: {"right": 0.95, "top": 0.97}
+        background_color: 1, 1, 1, 1
+        size_hint: 0.2, 0.05
+        text: "Renew"
+        on_release:
+            root.renewRecentTen()
+
+
+<SideBarPage>:
+    name: "sidebar"
+    GridLayout:
+        cols: 1
+
+
+        ScaleButton:
+            text: "Home"
+            background_color: 1, 1, 1, 1
+            on_release:
+                app.root.current = "home"
+                root.manager.transition.direction = "right"
+
+        ScaleButton:
+            text: "About Us / Contact Us"
+            background_color: 1, 1, 1, 0.8
+            on_release:
+                app.root.current = "aboutus"
+                root.manager.transition.direction = "left"
+
+        ScaleButton:
+            text: "My MAC Addresses"
+            background_color: 1, 1, 1, 0.6
+            on_release:
+                app.root.current = "seedata"
+                root.manager.transition.direction = "left"
+
+        ScaleButton:
+            text: "Delete Data & Quit"
+            background_color: 1, 1, 1, 0.4
+            on_release:
+                app.root.current = "quitapp"
+                root.manager.transition.direction = "left"
+
+        ScaleButton:
+            text: "I'm Infected"
+            background_color: 1, 1, 1, 0.2
+            on_release:
+                app.root.current = "senddata"
+                root.manager.transition.direction = "left"
+
+<SendDataPage>:
+    name: "senddata"
+    statusLabel : status
+    ScaleButton:
+        pos_hint: {"x": 0.05, "top": 0.97}
+        background_color: 1, 1, 1, 1
+        size_hint: 0.2, 0.05
+        text: "Options"
+        on_release:
+            root.clearCounter()
+            app.root.current = "sidebar"
+            root.manager.transition.direction = "right"
+    ScaleButton:
+        pos_hint: {"center_x": 0.5, "center_y": 0.7}
+        background_color: 1, 0, 0, 1
+        size_hint: 0.7, 0.12
+        text: "I Tested Positive (Click 6 times)"
+        on_release:
+            root.imInfectedButtonClicked()
+    ScaleButton:
+        pos_hint: {"center_x": 0.5, "center_y": 0.55}
+        background_color: 0, 1, 0, 1
+        size_hint: 0.7, 0.12
+        text: "I Recovered (Click 6 times)"
+        on_release:
+            root.iJustRecoveredButtonClicked()
+    ScaleButton:
+        id: status
+        background_color: root.store.get("sendDataLabelColor")["value"][0], root.store.get("sendDataLabelColor")["value"][1], root.store.get("sendDataLabelColor")["value"][2], root.store.get("sendDataLabelColor")["value"][3]
+        pos_hint: {"center_x": 0.5, "bottom": 0}
+        text: root.store.get("sendDataLabel")["value"]
+        size_hint: 1, 0.1
+
+<AboutUsPage>:
+    name: "aboutus"
+
+    ScaleButton:
+        pos_hint: {"x": 0.05, "top": 0.97}
+        background_color: 1, 1, 1, 1
+        size_hint: 0.2, 0.05
+        text: "Options"
+        on_release:
+            app.root.current = "sidebar"
+            root.manager.transition.direction = "right"
+    ScaleLabel:
+        pos_hint: {"center_x": 0.5, "center_y": 0.8}
+        size_hint: 0.7, 0.1
+        text: "Our Team"
+    Label:
+        pos_hint: {"center_x": 0.5, "center_y": 0.375}
+        size_hint: 0.7, 0.6
+        text_size: self.size
+        halign: "center"
+        valign: "top"
+        text: root.getEm()
 
 <HomePage>:
     name: "home"
@@ -1055,73 +1248,7 @@ WindowManager:
         pos_hint: {"center_x": 0.5, "bottom": 0}
         text: root.store.get("homeLabel")["value"]
         size_hint: 1, 0.1
-
-
-<SideBarPage>:
-    name: "sidebar"
-    GridLayout:
-        cols: 1
-
-
-        ScaleButton:
-            text: "Home"
-            background_color: 1, 1, 1, 1
-            on_release:
-                app.root.current = "home"
-                root.manager.transition.direction = "right"
-
-        ScaleButton:
-            text: "About Us / Contact Us"
-            background_color: 1, 1, 1, 0.8
-            on_release:
-                app.root.current = "aboutus"
-                root.manager.transition.direction = "left"
-
-        ScaleButton:
-            text: "My MAC Addresses"
-            background_color: 1, 1, 1, 0.6
-            on_release:
-                app.root.current = "seedata"
-                root.manager.transition.direction = "left"
-
-        ScaleButton:
-            text: "Delete Data & Quit"
-            background_color: 1, 1, 1, 0.4
-            on_release:
-                app.root.current = "quitapp"
-                root.manager.transition.direction = "left"
-
-        ScaleButton:
-            text: "I'm Infected"
-            background_color: 1, 1, 1, 0.2
-            on_release:
-                app.root.current = "senddata"
-                root.manager.transition.direction = "left"
-
-<AboutUsPage>:
-    name: "aboutus"
-
-    ScaleButton:
-        pos_hint: {"x": 0.05, "top": 0.97}
-        background_color: 1, 1, 1, 1
-        size_hint: 0.2, 0.05
-        text: "Options"
-        on_release:
-            app.root.current = "sidebar"
-            root.manager.transition.direction = "right"
-    ScaleLabel:
-        pos_hint: {"center_x": 0.5, "center_y": 0.8}
-        size_hint: 0.7, 0.1
-        text: "Our Team"
-    Label:
-        pos_hint: {"center_x": 0.5, "center_y": 0.375}
-        size_hint: 0.7, 0.6
-        text_size: self.size
-        halign: "center"
-        valign: "top"
-        text: root.getEm()
-
-
+        
 <QuitAppPage>:
     name: "quitapp"
     statusLabel : status
@@ -1149,71 +1276,9 @@ WindowManager:
         text: root.store.get("quitAppLabel")["value"]
         size_hint: 1, 0.1
 
-<SendDataPage>:
-    name: "senddata"
-    statusLabel : status
-    ScaleButton:
-        pos_hint: {"x": 0.05, "top": 0.97}
-        background_color: 1, 1, 1, 1
-        size_hint: 0.2, 0.05
-        text: "Options"
-        on_release:
-            root.clearCounter()
-            app.root.current = "sidebar"
-            root.manager.transition.direction = "right"
-    ScaleButton:
-        pos_hint: {"center_x": 0.5, "center_y": 0.7}
-        background_color: 1, 0, 0, 1
-        size_hint: 0.7, 0.12
-        text: "I Tested Positive (Click 6 times)"
-        on_release:
-            root.imInfectedButtonClicked()
-    ScaleButton:
-        pos_hint: {"center_x": 0.5, "center_y": 0.55}
-        background_color: 0, 1, 0, 1
-        size_hint: 0.7, 0.12
-        text: "I Recovered (Click 6 times)"
-        on_release:
-            root.iJustRecoveredButtonClicked()
-    ScaleButton:
-        id: status
-        background_color: root.store.get("sendDataLabelColor")["value"][0], root.store.get("sendDataLabelColor")["value"][1], root.store.get("sendDataLabelColor")["value"][2], root.store.get("sendDataLabelColor")["value"][3]
-        pos_hint: {"center_x": 0.5, "bottom": 0}
-        text: root.store.get("sendDataLabel")["value"]
-        size_hint: 1, 0.1
 
-<SeeDataPage>:
-    name: "seedata"
-    displayTen: display
-    ScaleLabel:
-        pos_hint: {"center_x": 0.5, "center_y": 0.86}
-        size_hint: 0.7, 0.04
-        text: "Recent Added Mac Addresses"
-        background_color: 1, 0, 0, 0.5
-    ScaleButton:
-        id: display
-        pos_hint: {"center_x": 0.5, "center_y": 0.4375}
-        size_hint: 0.7, 0.7
-        text: root.convertRecentTenToStr()
-        text_size: self.size
-        halign: "center"
-        valign: "top"
-    ScaleButton:
-        pos_hint: {"x": 0.05, "top": 0.97}
-        background_color: 1, 1, 1, 1
-        size_hint: 0.2, 0.05
-        text: "Options"
-        on_release:
-            app.root.current = "sidebar"
-            root.manager.transition.direction = "right"
 
-    ScaleButton:
-        pos_hint: {"right": 0.95, "top": 0.97}
-        background_color: 1, 1, 1, 1
-        size_hint: 0.2, 0.05
-        text: "Renew"
-        on_release:
-            root.renewRecentTen()
+
 '''
 
 #Loads the above kivy string into the builder
